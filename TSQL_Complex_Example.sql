@@ -1,5 +1,4 @@
-
-
+-- STORE PROCEDURE #1 
 IF OBJECT_ID('ADD_CUSTOMER') IS NOT NULL
 DROP PROCEDURE ADD_CUSTOMER;
 GO
@@ -37,3 +36,33 @@ EXEC ADD_CUSTOMER @pcustid = 1, @pcustname = 'testdude2';
 EXEC ADD_CUSTOMER @pcustid = 500, @pcustname = 'testdude3';
 
 select * from customer;
+/*
+-- TEMPLATE PROCEDURE TO SAVE SOME TYPING 
+IF OBJECT_ID ('XXXXX') IS NOT NULL
+DROP PROCEDURE XXXXX; 
+GO
+
+CREATE PROCEDURE XXXXX @PCUSTID INT, @PCUSTNAME NVARCHAR(100) AS 
+
+BEGIN   
+    BEGIN TRY
+
+
+    END TRY 
+    BEGIN CATCH
+        if ERROR_NUMBER() = XXXXX
+            THROW 11111, 'XXXXXX',1
+        ELSE IF ERROR_NUMBER() = XXXXX
+            THROW
+        ELSE
+
+
+        
+            BEGIN   
+                DECLARE @ERRORMESSAGE NVARCHAR(MAX) = ERROR_MESSAGE(); 
+                THROW 50000, @ERRORMESSAGE, 1
+            END;
+        END CATCH; 
+    END; 
+GO
+/*
