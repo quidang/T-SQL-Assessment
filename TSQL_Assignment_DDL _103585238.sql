@@ -639,13 +639,13 @@ BEGIN
 END;
 GO
 -- TESTING:
-DELETE FROM LOCATION
-EXECUTE ADD_LOCATION @ploccode = 'Loc01', @pminqty = 0, @pmaxqty = 999;
-EXECUTE ADD_LOCATION @ploccode = 'Loc01', @pminqty = 0, @pmaxqty = 999; -- duplicate location code
-EXECUTE ADD_LOCATION @ploccode = 'Loc02', @pminqty = -500, @pmaxqty = 999; --min out of range
-EXECUTE ADD_LOCATION @ploccode = 'Loc02', @pminqty = 0, @pmaxqty = 1000; --max out of range
-EXECUTE ADD_LOCATION @ploccode = 'Loc02', @pminqty = 500, @pmaxqty = 200; -- min bigger than max 
-SELECT * FROM LOCATION
+-- DELETE FROM LOCATION
+-- EXECUTE ADD_LOCATION @ploccode = 'Loc01', @pminqty = 0, @pmaxqty = 999;
+-- EXECUTE ADD_LOCATION @ploccode = 'Loc01', @pminqty = 0, @pmaxqty = 999; -- duplicate location code
+-- EXECUTE ADD_LOCATION @ploccode = 'Loc02', @pminqty = -500, @pmaxqty = 999; --min out of range
+-- EXECUTE ADD_LOCATION @ploccode = 'Loc02', @pminqty = 0, @pmaxqty = 1000; --max out of range
+-- EXECUTE ADD_LOCATION @ploccode = 'Loc02', @pminqty = 500, @pmaxqty = 200; -- min bigger than max 
+-- SELECT * FROM LOCATION
 
 -- STORED PROCEDURE ##16 
 IF OBJECT_ID('ADD_COMPLEX_SALE') IS NOT NULL
@@ -718,7 +718,7 @@ GO
 -- SELECT * FROM CUSTOMER
 
 -- DELETE FROM SALE 
--- EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 50, @pdate = '20211004';
+-- EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20211004';
 -- EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 100, @pdate = '2021082'; -- date not valid
 -- EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 100, @pdate = '2021-08-21';-- date not valid
 -- EXECUTE ADD_COMPLEX_SALE @pcustid = 3, @pprodid = 2001, @pqty = 100, @pdate = '20210821'; --cust id not found
@@ -802,33 +802,257 @@ END;
 GO
 
 -- TESTING:
+-- DELETE FROM SALE
+-- DELETE FROM PRODUCT
+-- EXECUTE ADD_PRODUCT @PRODID = 2001, @PRODNAME ='Perfect', @PPRICE = 10
+
+-- DELETE FROM CUSTOMER
+-- EXEC ADD_CUSTOMER @pcustid = 1, @pcustname = 'Dummy One';
+
+-- EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20211004';
+-- EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20211004';
+-- EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20201004';
+-- SELECT * FROM PRODUCT
+-- SELECT * FROM CUSTOMER
+-- SELECT * FROM SALE
+
+-- BEGIN
+--     DECLARE @OUTPUTVALUE INT;
+    
+--     EXECUTE COUNT_PRODUCT_SALES @PDAYS = 0, @PCOUNT = @OUTPUTVALUE OUTPUT
+--     PRINT (@OUTPUTVALUE);
+
+--     EXECUTE COUNT_PRODUCT_SALES @PDAYS = 1, @PCOUNT = @OUTPUTVALUE OUTPUT
+--     PRINT (@OUTPUTVALUE);
+
+--     EXECUTE COUNT_PRODUCT_SALES @PDAYS = 11, @PCOUNT = @OUTPUTVALUE OUTPUT
+--     PRINT (@OUTPUTVALUE);
+
+--     EXECUTE COUNT_PRODUCT_SALES @PDAYS = 1000, @PCOUNT = @OUTPUTVALUE OUTPUT
+--     PRINT (@OUTPUTVALUE);
+-- END
+-- GO
+
+-- STORED PROCEDURE #19
+IF OBJECT_ID('DELETE_SALE') IS NOT NULL
+DROP PROCEDURE DELETE_SALE;
+GO
+
+CREATE PROCEDURE DELETE_SALE @saleid BIGINT OUTPUT AS
+BEGIN
+    BEGIN TRY
+        DECLARE @SALEPCUSTID INT, @SALEPPRODID INT, @UPDATEAMT INT;
+
+        SELECT @SALEID = MIN(SALEID) FROM SALE
+        IF @SALEID IS NULL
+            THROW 50280, 'No Sale Rows Found', 1
+        
+        SELECT @SALEPCUSTID = CUSTID FROM SALE
+        WHERE SALEID = @SALEID;
+        SELECT @SALEPPRODID = PRODID FROM SALE
+        WHERE SALEID = @SALEID;
+        SELECT @UPDATEAMT = QTY*PRICE FROM SALE
+        WHERE SALEID = @SALEID;
+        
+        EXEC UPD_CUST_SALESYTD @pcustid = @salepcustid, @PAMT = @UPDATEAMT
+        EXEC UPD_PROD_SALESYTD @prodid = @salepprodid, @PAMT = @UPDATEAMT
+
+        DELETE FROM SALE
+        WHERE SALEID = @SALEID;
+
+    END TRY
+    BEGIN CATCH
+        if ERROR_NUMBER() in (50280)
+            THROW
+        ELSE
+            BEGIN
+                DECLARE @ERRORMESSAGE NVARCHAR(MAX) = ERROR_MESSAGE();
+                THROW 50000, @ERRORMESSAGE, 1
+            END; 
+    END CATCH;
+END;
+GO
+
+-- TESTING: 
 DELETE FROM SALE
 DELETE FROM PRODUCT
-EXECUTE ADD_PRODUCT @PRODID = 2001, @PRODNAME ='Perfect', @PPRICE = 10
+EXEC ADD_PRODUCT @PRODID = 2001, @PRODNAME ='Perfect', @PPRICE = 10
 
 DELETE FROM CUSTOMER
 EXEC ADD_CUSTOMER @pcustid = 1, @pcustname = 'Dummy One';
 
-EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20211004';
-EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20211004';
-EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20201004';
+EXEC ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20211011';
+EXEC ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20211011';
 SELECT * FROM PRODUCT
 SELECT * FROM CUSTOMER
 SELECT * FROM SALE
 
 BEGIN
-    DECLARE @OUTPUTVALUE INT;
-    
-    EXECUTE COUNT_PRODUCT_SALES @PDAYS = 0, @PCOUNT = @OUTPUTVALUE OUTPUT
-    PRINT (@OUTPUTVALUE);
-
-    EXECUTE COUNT_PRODUCT_SALES @PDAYS = 1, @PCOUNT = @OUTPUTVALUE OUTPUT
-    PRINT (@OUTPUTVALUE);
-
-    EXECUTE COUNT_PRODUCT_SALES @PDAYS = 11, @PCOUNT = @OUTPUTVALUE OUTPUT
-    PRINT (@OUTPUTVALUE);
-
-    EXECUTE COUNT_PRODUCT_SALES @PDAYS = 1000, @PCOUNT = @OUTPUTVALUE OUTPUT
+    DECLARE @OUTPUTVALUE BIGINT;
+    EXEC DELETE_SALE @SALEID = @OUTPUTVALUE OUTPUT;
     PRINT (@OUTPUTVALUE);
 END
 GO
+
+BEGIN
+    DECLARE @OUTPUTVALUE BIGINT;
+    EXEC DELETE_SALE @SALEID = @OUTPUTVALUE OUTPUT;
+    PRINT (@OUTPUTVALUE);
+END
+GO
+
+SELECT * FROM SALE
+
+BEGIN
+    DECLARE @OUTPUTVALUE BIGINT;
+    EXEC DELETE_SALE @SALEID = @OUTPUTVALUE OUTPUT;
+    PRINT (@OUTPUTVALUE);
+END
+GO
+
+-- STORED PROCEDURE #20
+IF OBJECT_ID('DELETE_ALL_SALES') IS NOT NULL
+DROP PROCEDURE DELETE_ALL_SALES;
+GO
+
+CREATE PROCEDURE DELETE_ALL_SALES AS
+BEGIN
+    BEGIN TRY
+
+        DELETE FROM SALE
+
+        UPDATE CUSTOMER
+        SET SALES_YTD=0;
+        UPDATE PRODUCT
+        SET SALES_YTD=0;        
+
+    END TRY
+    BEGIN CATCH
+        DECLARE @ERRORMESSAGE NVARCHAR(MAX) = ERROR_MESSAGE();
+        THROW 50000, @ERRORMESSAGE, 1
+    END CATCH;
+END;
+GO
+
+-- TESTING: 
+-- DELETE FROM SALE 
+-- DELETE FROM PRODUCT
+-- EXECUTE ADD_PRODUCT @PRODID = 2001, @PRODNAME ='Perfect', @PPRICE = 10
+
+-- DELETE FROM CUSTOMER
+-- EXECUTE ADD_CUSTOMER @PCUSTID = 1, @PCUSTNAME = 'Dummy One';
+
+-- EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20211004';
+-- EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20211014';
+
+-- SELECT * FROM PRODUCT
+-- SELECT * FROM CUSTOMER
+-- SELECT * FROM SALE
+
+-- EXECUTE DELETE_ALL_SALES;
+
+
+-- STORED PROCEDURE #21
+IF OBJECT_ID('DELETE_CUSTOMER') IS NOT NULL
+DROP PROCEDURE DELETE_CUSTOMER;
+GO
+
+CREATE PROCEDURE DELETE_CUSTOMER @pCustid INT AS
+BEGIN
+    BEGIN TRY
+
+        DELETE FROM CUSTOMER
+        WHERE CUSTID = @pCustid
+        IF @@ROWCOUNT = 0
+            THROW 50290, 'Customer ID not found', 1
+
+    END TRY
+    BEGIN CATCH
+        if ERROR_NUMBER() = 547
+            THROW 50300, 'Customer cannot be deleted as sales exist', 1
+        ELSE if ERROR_NUMBER() in (50290)
+            THROW
+        ELSE
+            BEGIN
+                DECLARE @ERRORMESSAGE NVARCHAR(MAX) = ERROR_MESSAGE();
+                THROW 50000, @ERRORMESSAGE, 1
+            END; 
+    END CATCH;
+END;
+GO
+
+-- TESTING: 
+-- DELETE FROM SALE 
+-- DELETE FROM PRODUCT
+-- EXECUTE ADD_PRODUCT @PRODID = 2001, @PRODNAME ='Perfect', @PPRICE = 10
+
+-- DELETE FROM CUSTOMER
+-- EXECUTE ADD_CUSTOMER @PCUSTID = 1, @PCUSTNAME = 'Dummy One';
+
+-- EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20211004';
+-- EXECUTE ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20211014';
+
+-- SELECT * FROM PRODUCT
+-- SELECT * FROM CUSTOMER
+-- SELECT * FROM SALE
+
+-- DELETE FROM CUSTOMER 
+-- WHERE CUSTID = 1
+
+-- EXECUTE DELETE_CUSTOMER @PCUSTID = 1;
+-- EXECUTE DELETE_ALL_SALES;
+-- SELECT * FROM CUSTOMER 
+
+-- STORED PROCEDURE #22
+IF OBJECT_ID('DELETE_PRODUCT') IS NOT NULL
+DROP PROCEDURE DELETE_PRODUCT;
+GO
+
+CREATE PROCEDURE DELETE_PRODUCT @pProdid INT AS
+BEGIN
+    BEGIN TRY
+
+        DELETE FROM PRODUCT
+        WHERE PRODID = @pProdid
+        IF @@ROWCOUNT = 0
+            THROW 50310, 'Product ID not found', 1
+
+    END TRY
+    BEGIN CATCH
+        if ERROR_NUMBER() = 547
+            THROW 50320, 'Product cannot be deleted as sales exist', 1
+        ELSE if ERROR_NUMBER() in (50310)
+            THROW
+        ELSE
+            BEGIN
+                DECLARE @ERRORMESSAGE NVARCHAR(MAX) = ERROR_MESSAGE();
+                THROW 50000, @ERRORMESSAGE, 1
+            END; 
+    END CATCH;
+END;
+GO
+
+-- DELETE FROM SALE
+-- DELETE FROM PRODUCT
+-- EXEC ADD_PRODUCT @PRODID = 2001, @PRODNAME ='Perfect', @PPRICE = 10
+
+-- DELETE FROM CUSTOMER
+-- EXEC ADD_CUSTOMER @pcustid = 1, @pcustname = 'Dummy One';
+
+-- EXEC ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20210821';
+-- EXEC ADD_COMPLEX_SALE @pcustid = 1, @pprodid = 2001, @pqty = 10, @pdate = '20210811';
+-- SELECT * FROM PRODUCT
+-- SELECT * FROM CUSTOMER
+-- SELECT * FROM SALE
+
+-- EXEC DELETE_PRODUCT @pProdid = 2001;
+
+-- EXEC DELETE_ALL_SALES;
+
+-- EXEC DELETE_PRODUCT @pProdid = 2001;
+
+-- SELECT * FROM PRODUCT
+
+-- EXEC DELETE_PRODUCT @pProdid = 2001;
+
+
